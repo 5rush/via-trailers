@@ -1,0 +1,30 @@
+{
+  "name": "via-trailers",
+  "version": "1.0.0",
+  "description": "REST API for providing clients with trailer URLs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/5rush/via-trailers.git"
+  },
+  "keywords": [
+    "REST",
+    "trailers"
+  ],
+  "author": "Martina Petras",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/5rush/via-trailers/issues"
+  },
+  "homepage": "https://github.com/5rush/via-trailers#readme",
+  "dependencies": {
+    "axios": "^0.17.1",
+    "body-parser": "^1.18.2",
+    "express": "^4.16.2",
+    "moviedb": "^0.2.10",
+    "request": "^2.83.0"
+  }
+}
