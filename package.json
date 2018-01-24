@@ -23,8 +23,11 @@
   "dependencies": {
     "axios": "^0.17.1",
     "body-parser": "^1.18.2",
+    "chai": "^4.1.2",
     "express": "^4.16.2",
     "moviedb": "^0.2.10",
-    "request": "^2.83.0"
+    "redis": "^2.8.0",
+    "request": "^2.83.0",
+    "restler": "^3.4.0"
   }
 }

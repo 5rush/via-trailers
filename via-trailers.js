@@ -2,9 +2,14 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const credentials = require('./credentials.js');
+const redis = require('redis');
+const PORT = process.env.PORT;
+const REDIS_PORT = process.env.REDIS_PORT;
 
 const app = express();
-app.set('port', process.env.PORT || 3000);
+app.set('port', PORT || 3000);
+
+var client = (app.get('env') === 'development') ? redis.createClient(REDIS_PORT) : redis.createClient(process.env.REDISCLOUD_URL, {no_ready_check: true});
 
 app.use(bodyParser.urlencoded({
 	extended: true
@@ -15,15 +20,14 @@ app.use(bodyParser.json());
 var getImdbId = function(url) {
 	return new Promise(function(resolve, reject) {
 		axios(url).then(function(response){
-			let movieData = response.data;
+			var movieData = response.data;
 			if(movieData._embedded){
 				
-				let imdbData = movieData._embedded["viaplay:blocks"][0]._embedded["viaplay:product"].content.imdb;
-				console.log(imdbData.id);
+				var imdbData = movieData._embedded["viaplay:blocks"][0]._embedded["viaplay:product"].content.imdb;
+				
 				resolve(imdbData.id);
 			} else {
-				console.log('The url you provided is not correct.');
-				reject('The url you provided is not correct.');
+				reject(response.data);
 			}
 		}).catch(function(error){
 			reject(error);
@@ -37,15 +41,12 @@ var getMovieVideos = function(id){
 	 '/videos?api_key=' + credentials.moviedb.api_key.development;
 	return new Promise(function(resolve, reject){
 		axios(url).then(function(response){
-			console.log(response.data);
 			resolve(response.data);
 		}).catch(function(error){
 			reject(error);
 		});
 	});
 };
-
-var movieCache = {};
 
 var getMovieTrailers = function (movieURL) {
 	
@@ -63,11 +64,6 @@ var getMovieTrailers = function (movieURL) {
 		}
 	};
 
-	if (movieCache[movieURL]) {
-		console.log('in cache!!');
-		return Promise.resolve(movieCache[movieURL]);
-	}
-
 	return new Promise(function(resolve, reject){
 		getImdbId(movieURL)
 			.then(getMovieVideos)
@@ -75,16 +71,16 @@ var getMovieTrailers = function (movieURL) {
 				var trailersURLs = movieVideos.results
 									.filter(isTrailer)
 									.map(getYouTubeURL);
-				
-				movieCache[movieURL] = trailersURLs;
+				// Cache the trailers
+				client.set(movieURL, JSON.stringify(trailersURLs));
 				resolve(trailersURLs);
 				}, function(error){
 					reject(error);
-				});
+			});
 	});
 };
 
-app.post('/api/trailer', function(req, res){
+var fetchTrailers = function(req, res, next){
 	var movieUrl = req.body.url;
 
 	getMovieTrailers(movieUrl)
@@ -92,15 +88,32 @@ app.post('/api/trailer', function(req, res){
 	 		console.log(response);
 			res.status(200).send(response);
 		}, function(error){
-				var errObj = {
-					status_message: "Bad Request",
-					request_object: req.body
-				};
+			var errObj = {
+				status_message: "Bad Request",
+				request_object: req.body
+			};
 
-				res.status(404).send(errObj);
-			}
-		);
-});
+			res.status(404).send(errObj);
+		}
+	);
+};
+
+var cache = function(req, res, next){
+	client.get(req.body.url, function (error, data) {
+        if (error) {
+        	// TODO: error handler
+        	next();
+        }
+
+        if (data != null) {
+            res.status(200).send(JSON.parse(data));
+        } else {
+           next(); 
+        }
+    });
+};
+
+app.post('/api/trailer', cache, fetchTrailers);
 
 app.listen(app.get('port'), function(){
 	console.log('Express started in ' + app.get('env') +
